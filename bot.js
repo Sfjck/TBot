@@ -75,10 +75,15 @@ function EmojiReactCore(message, word, target, offset){
 			//get exact message ID
 			message.channel.fetchMessage(messageID)
 				.then((targetMessage) => {
-					//react either letters or just 1 emoji
+					//react either letters or 1 emoji + letters
 					const wordEmoji = client.emojis.find(emoji => emoji.name.toLowerCase() == word);
-					if (wordEmoji != null) targetMessage.react(wordEmoji.id);
-					AddReactionLetters(targetMessage, word, 0);
+					if (wordEmoji != null) {
+						targetMessage.react(wordEmoji.id)
+							.then((wordEmojiPromise) => {
+								AddReactionLetters(targetMessage, word, 0);
+							})
+							.catch(console.error);
+					} else AddReactionLetters(targetMessage, word, 0);
 				})
 				.catch(console.error);
 		})
@@ -90,8 +95,8 @@ function AddReactionLetters(targetMessage, word, letterIndex){
 	//base case: last letter reached
 	if (letterIndex >= word.length) return;
 	var emojiNumber = word.charCodeAt(letterIndex); //ascii conversion
-	if (emojiNumber >= 97 && emojiNumber <= 122) emojiNumber -= 87;
-	if (emojiNumber >= 48 && emojiNumber <= 57) emojiNumber -= 48
+	if (emojiNumber >= 97 && emojiNumber <= 122) emojiNumber -= 87; //letters a-z
+	if (emojiNumber >= 48 && emojiNumber <= 57) emojiNumber -= 4; //numbers 0-9
 	targetMessage.react(config.emojis[emojiNumber])
 		.then((reactionPromise) => {
 			AddReactionLetters(targetMessage, word, letterIndex+1);
