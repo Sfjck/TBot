@@ -75,7 +75,9 @@ function EmojiReactCore(message, word, target, offset){
 			//get exact message ID
 			message.channel.fetchMessage(messageID)
 				.then((targetMessage) => {
-					//react
+					//react either letters or just 1 emoji
+					const wordEmoji = client.emojis.find(emoji => emoji.name.toLowerCase() == word);
+					if (wordEmoji != null) targetMessage.react(wordEmoji.id);
 					AddReactionLetters(targetMessage, word, 0);
 				})
 				.catch(console.error);
@@ -87,7 +89,7 @@ function EmojiReactCore(message, word, target, offset){
 function AddReactionLetters(targetMessage, word, letterIndex){
 	//base case: last letter reached
 	if (letterIndex >= word.length) return;
-	var emojiNumber = word.charCodeAt(letterIndex);
+	var emojiNumber = word.charCodeAt(letterIndex); //ascii conversion
 	if (emojiNumber >= 97 && emojiNumber <= 122) emojiNumber -= 87;
 	if (emojiNumber >= 48 && emojiNumber <= 57) emojiNumber -= 48
 	targetMessage.react(config.emojis[emojiNumber])
