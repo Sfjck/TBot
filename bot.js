@@ -57,14 +57,14 @@ function EmojiReactCore(message, word, target, offset){
 	}
 	//offset
 	if (typeof offset === "undefined" || offset === "" || !offset.startsWith("!")) {
-		offset = 1;
+		offset = 0;
 	} else{
 		offset = parseInt(offset.substring(1)); //!123 --> 123
-		if (isNaN(offset) || offset > fetchLimit) offset = 1;
+		if (isNaN(offset) || offset > fetchLimit) offset = 0;
 	}
 
 //Get list of messages
-	message.channel.fetchMessages({limit:fetchLimit, /*before: message.id*/})
+	message.channel.fetchMessages({limit:fetchLimit, before: message.id})
 		.then((messages) => {
 			if (hasTarget){
 				messages = messages.filter(m => m.author.id == target).array();
@@ -72,27 +72,27 @@ function EmojiReactCore(message, word, target, offset){
 				messages = messages.array();
 			}
 			var messageID = messages[offset].id;
-			AddReaction(message.channel, messageID, word);
+			//get exact message ID
+			message.channel.fetchMessage(messageID)
+				.then((targetMessage) => {
+					//react
+					AddReactionLetters(targetMessage, word, 0);
+				})
+				.catch(console.error);
 		})
 		.catch(console.error);
 }
-//Get exact message ID
-function AddReaction(channel, messageID, word){
-	channel.fetchMessage(messageID)
-		.then((reactMessage) => {
-			AddReactionLetter(reactMessage, word, 0);
-		})
-		.catch(console.error);
-}
-//Adding word as letters by recursion
-function AddReactionLetter(reactMessage, word, letterIndex){
+
+//Reacting out word as letters by recursion
+function AddReactionLetters(targetMessage, word, letterIndex){
+	//base case: last letter reached
 	if (letterIndex >= word.length) return;
 	var emojiNumber = word.charCodeAt(letterIndex);
 	if (emojiNumber >= 97 && emojiNumber <= 122) emojiNumber -= 87;
 	if (emojiNumber >= 48 && emojiNumber <= 57) emojiNumber -= 48
-	reactMessage.react(config.emojis[emojiNumber])
+	targetMessage.react(config.emojis[emojiNumber])
 		.then((reactionPromise) => {
-			AddReactionLetter(reactMessage, word, letterIndex+1);
+			AddReactionLetters(targetMessage, word, letterIndex+1);
 		})
 		.catch(console.error);
 }
