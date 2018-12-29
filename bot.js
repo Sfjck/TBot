@@ -35,18 +35,17 @@ client.on("message", (message) => {
 
 function EmojiReactCore(message, word, target, offset){
 	const fetchLimit = 20;
-//expected syntax !react WORD [@target] [!offset]
-//input cleaning
-	//word
+	//expected syntax !react WORD [@target] [!offset]
+	//input cleaning: word
 	if (typeof word === "undefined" || word === "") return;
 		word = word.replace(/[^a-zA-Z0-9]/g,"");
 		word = word.toLowerCase();
-	//No target, Yes offset case:
+	//No target, yes offset case:
 	if (typeof target !== "undefined" && target.startsWith("!")){
 		offset = target;
 		target = "0";
 	}
-	//target
+	//input cleaning: target
 	var hasTarget;
 	if (typeof target === "undefined" || target === "" || !target.startsWith("<@")){
 		target = 0;
@@ -55,7 +54,7 @@ function EmojiReactCore(message, word, target, offset){
 		target = message.mentions.users.first().id;
 		hasTarget = true;
 	}
-	//offset
+	//input cleaning: offset
 	if (typeof offset === "undefined" || offset === "" || !offset.startsWith("!")) {
 		offset = 0;
 	} else{
@@ -63,7 +62,7 @@ function EmojiReactCore(message, word, target, offset){
 		if (isNaN(offset) || offset > fetchLimit) offset = 0;
 	}
 
-//Get list of messages
+	//Get list of previous messages
 	message.channel.fetchMessages({limit:fetchLimit, before: message.id})
 		.then((messages) => {
 			if (hasTarget){
@@ -72,18 +71,31 @@ function EmojiReactCore(message, word, target, offset){
 				messages = messages.array();
 			}
 			var messageID = messages[offset].id;
-			//get exact message ID
+			//get messageID of target message
 			message.channel.fetchMessage(messageID)
 				.then((targetMessage) => {
-					//react either letters or 1 emoji + letters
+					//check if entire word exists as 1 emoji
 					const wordEmoji = client.emojis.find(emoji => emoji.name.toLowerCase() == word);
-					if (wordEmoji != null) {
-						targetMessage.react(wordEmoji.id)
+					//for duplicate letters
+					var usedLetters = new Array(36);
+					usedLetters.fill(0);
+					
+					//react with either letters or 1 emoji + letters
+					if (wordEmoji != null || word == "pray") {
+						//special case for "pray"
+						if (word == "pray"){
+							var wordEmojiID = "🙏";
+						} else{
+							var wordEmojiID = wordEmoji.id;
+						}
+						targetMessage.react(wordEmojiID)
 							.then((wordEmojiPromise) => {
-								AddReactionLetters(targetMessage, word, 0);
+								AddReactionLetters(targetMessage, word, usedLetters, 0);
 							})
 							.catch(console.error);
-					} else AddReactionLetters(targetMessage, word, 0);
+					} else {
+						AddReactionLetters(targetMessage, word, usedLetters, 0);
+					}
 				})
 				.catch(console.error);
 		})
@@ -91,17 +103,33 @@ function EmojiReactCore(message, word, target, offset){
 }
 
 //Reacting out word as letters by recursion
-function AddReactionLetters(targetMessage, word, letterIndex){
+function AddReactionLetters(targetMessage, word, usedLetters, letterIndex){
 	//base case: last letter reached
 	if (letterIndex >= word.length) return;
+	
 	var emojiNumber = word.charCodeAt(letterIndex); //ascii conversion
 	if (emojiNumber >= 97 && emojiNumber <= 122) emojiNumber -= 87; //letters a-z
-	if (emojiNumber >= 48 && emojiNumber <= 57) emojiNumber -= 4; //numbers 0-9
-	targetMessage.react(config.emojis[emojiNumber])
-		.then((reactionPromise) => {
-			AddReactionLetters(targetMessage, word, letterIndex+1);
-		})
-		.catch(console.error);
+	if (emojiNumber >= 48 && emojiNumber <= 57) emojiNumber -= 48; //numbers 0-9
+	
+	var characterEmoji = "";
+	//first vs second instance of letter
+	if (usedLetters[emojiNumber] == 0) {
+		characterEmoji = config.emojis[emojiNumber];
+	} else if (usedLetters[emojiNumber] == 1) {
+		characterEmoji = config.emojis2[emojiNumber];
+	}
+	usedLetters[emojiNumber]++;
+	
+	//add reaction, then recursion to next letter
+	if (characterEmoji == ""){
+		AddReactionLetters(targetMessage, word, usedLetters, letterIndex+1);
+	} else {
+		targetMessage.react(characterEmoji)
+			.then((reactionPromise) => {
+				AddReactionLetters(targetMessage, word, usedLetters, letterIndex+1);
+			})
+			.catch(console.error);
+	}
 }
 
 
