@@ -1,69 +1,73 @@
+//Required files/libraries
 const Discord = require("discord.js");
-const auth = require("./auth.json");
-const config = require("./config.json");
+const Auth = require("./auth.json");
+const Config = require("./config.json");
+const Prefix = Config.prefix;
 
-// Initialize Discord Bot
-const client = new Discord.Client()
-client.login(auth.token)
-
-// Initialize config
-const prefix = config.prefix;
-
-// Successful node.js run, output in console
-client.on("ready", () => {
+// Initialize Bot
+const Client = new Discord.Client()
+Client.login(Auth.token)
+Client.on("ready", () => {
 	console.log("Bot is ready");
 });
 
-//Receive commands and run functions
-client.on("message", (message) => {
-//Ignore bots || wrong prefix
-	if (message.author.bot || message.content.indexOf(prefix) !== 0){
+//Check for commands in every message
+Client.on("message", (triggerMessage) => {
+	//Ignore other bots || no prefix
+	if (triggerMessage.author.bot || triggerMessage.content.indexOf(Prefix) !== 0){
 		return;
 	}
-	const args = message.content.slice(prefix.length).trim().split(/ +/g); //everything after command
-	const command = args.shift().toLowerCase(); //first word
-
-/*----------Determine type of command-------------*/
-	//Emoji React
-	switch(command){
+	const Args = triggerMessage.content.slice(Prefix.length).trim().split(/ +/g); //arguments: array of everything after command word, each word is an element
+	const Command = Args.shift().toLowerCase(); //command: first word
+	
+	/*-------------------------------------------------------------------Determine type of command-------------------------------------------------------------------*/
+	switch(Command){
+		//Emoji react
 		case "react":
 		case "r":
-			EmojiReactCore(message, args[0],args[1],args[2]);
+			var optionalParameters = Args[1] + " " + Args[2];
+			EmojiReact(triggerMessage, Args[0], optionalParameters);
 			break;
 	}
 });
 
-function EmojiReactCore(message, word, target, offset){
-	const fetchLimit = 20;
-	//expected syntax !react WORD [@target] [!offset]
-	//input cleaning: word
-	if (typeof word === "undefined" || word === "") return;
-		word = word.replace(/[^a-zA-Z0-9]/g,"");
-		word = word.toLowerCase();
-	//No target, yes offset case:
-	if (typeof target !== "undefined" && target.startsWith("!")){
-		offset = target;
-		target = "0";
+/*---------------------------------------------------------Command Functions--------------------------------------------------------------*/
+
+//Emoji react
+//expected syntax !react WORD [@target] [!offset]
+function EmojiReact(commandMessage, word, optionalParameters){
+	//input cleaning for word
+	if (typeof word === "undefined" || word === ""){
+		return;
 	}
-	//input cleaning: target
-	var hasTarget;
-	if (typeof target === "undefined" || target === "" || !target.startsWith("<@")){
-		target = 0;
+	word = word.replace(/[^a-zA-Z0-9]/g,"").toLowerCase();
+	
+	//check for optional parameters
+	const MaxOffset = 20;
+	var hasTarget, hasOffset;
+	var target, offset;
+	if (typeof commandMessage.mentions.users.first() === "undefined"){
 		hasTarget = false;
-	} else{	
-		target = message.mentions.users.first().id;
+	} else{
 		hasTarget = true;
+		target = commandMessage.mentions.users.first().id;
 	}
-	//input cleaning: offset
-	if (typeof offset === "undefined" || offset === "" || !offset.startsWith("!")) {
+	if (optionalParameters.indexOf(Prefix) == -1){
+		hasOffset = false;
 		offset = 0;
 	} else{
-		offset = parseInt(offset.substring(1)); //!123 --> 123
-		if (isNaN(offset) || offset > fetchLimit) offset = 0;
+		hasOffset = true;
+		var splitParameters = optionalParameters.split(" ");
+		if (splitParameters[0].indexOf(Prefix) != -1){
+			offset = splitParameters[0].slice(Prefix.length).trim();
+		} else{
+			offset = splitParameters[1].slice(Prefix.length).trim();
+		}
+		offset = Math.min(parseInt(offset), MaxOffset);
 	}
-
+	
 	//Get list of previous messages
-	message.channel.fetchMessages({limit:fetchLimit, before: message.id})
+	commandMessage.channel.fetchMessages({limit:MaxOffset, before: commandMessage.id})
 		.then((messages) => {
 			if (hasTarget){
 				messages = messages.filter(m => m.author.id == target).array();
@@ -72,10 +76,10 @@ function EmojiReactCore(message, word, target, offset){
 			}
 			var messageID = messages[offset].id;
 			//get messageID of target message
-			message.channel.fetchMessage(messageID)
+			commandMessage.channel.fetchMessage(messageID)
 				.then((targetMessage) => {
 					//check if entire word exists as 1 emoji
-					const wordEmoji = client.emojis.find(emoji => emoji.name.toLowerCase() == word);
+					const wordEmoji = Client.emojis.find(emoji => emoji.name.toLowerCase() == word);
 					//for duplicate letters
 					var usedLetters = new Array(36);
 					usedLetters.fill(0);
@@ -94,7 +98,7 @@ function EmojiReactCore(message, word, target, offset){
 							})
 							.catch(console.error);
 					} else {
-						AddReactionLetters(targetMessage, word, usedLetters, 0);
+							AddReactionLetters(targetMessage, word, usedLetters, 0);
 					}
 				})
 				.catch(console.error);
@@ -114,9 +118,9 @@ function AddReactionLetters(targetMessage, word, usedLetters, letterIndex){
 	var characterEmoji = "";
 	//first vs second instance of letter
 	if (usedLetters[emojiNumber] == 0) {
-		characterEmoji = config.emojis[emojiNumber];
+		characterEmoji = Config.emojis[emojiNumber];
 	} else if (usedLetters[emojiNumber] == 1) {
-		characterEmoji = config.emojis2[emojiNumber];
+		characterEmoji = Config.emojis2[emojiNumber];
 	}
 	usedLetters[emojiNumber]++;
 	
